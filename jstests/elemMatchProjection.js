@@ -133,6 +133,103 @@ if (false) {
 }
 
 //
+// SERVER-XXXX:  $elemKey projections
+//
+
+assert.eq( 2,
+           t.find( { group:3, 'x.a':2 }, { 'x.$': { $elemKey:1 } } ).toArray()[0].x.length,
+           "elemKey: single object match (array length match)" );
+
+assert.eq( 2,
+          t.find( { group:3, 'x.a':1 }, { 'x.$': { $elemKey:1 } } ).toArray()[0].x[0].b,
+          "elemKey: single object match first" );
+
+assert.eq( 0,
+          t.find( { group:3, 'x.a':1 }, { 'x.$': { $elemKey:1 } } ).toArray()[0].x[1],
+          "elemKey: single object first key" );
+
+assert.eq( undefined,
+          t.find( { group:3, 'x.a':2 }, { _id:0, 'x.$': { $elemKey:1 } } ).toArray()[0]._id,
+          "elemKey: single object match with filtered _id" );
+
+assert.eq( 2,
+        t.find( { group:3, 'x.a':2 }, { 'x.$': { $elemKey:1 } } ).sort( { _id:1 } ).toArray()[0].x.length,
+        "elemKey: sorted single object match with sorted _id (array length match)" );
+
+assert.eq( 2,
+        t.find( { 'group':2, 'x': { '$elemMatch' : { 'a':1, 'b':2 } } }, { 'x.$': { $elemKey:1 } } ).toArray()[0].x.length,
+        "elemKey: single object match with elemMatch" );
+
+assert.eq( 0,
+        t.find( { 'group':2, 'x': { '$elemMatch' : { 'a':1, 'b':2 } } }, { 'x.$': { $elemKey:1 } } ).toArray()[0].x[1],
+        "elemKey: single object key with elemMatch" );
+
+assert.eq( 2,
+        t.find( { 'group':12, 'x.y.a':1 }, { 'x.y.$': { $elemKey:1 } } ).toArray()[0].x.y.length,
+        "elemKey: single object match with two level dot notation" );
+
+assert.eq( 0,
+        t.find( { 'group':12, 'x.y.a':1 }, { 'x.y.$': { $elemKey:1 } } ).toArray()[0].x.y[1],
+        "elemKey: single object key with two level dot notation" );
+
+assert.eq( 2,
+          t.find( { group:3, 'x.a':2 }, { 'x.$': { $elemKey:1 } } ).sort( { x:1 } ).toArray()[0].x.length,
+          "elemKey: sorted object match (array length match)" );
+
+assert.eq( { aa:1, dd:5 },
+           t.find( { group:3, 'y.dd':5 }, { 'y.$': { $elemKey:1 } } ).toArray()[0].y[0],
+           "elemKey: single object match (value match)" );
+
+assert.throws( function() {
+                   t.find( { group:3, 'x.a':2 }, { 'y.$': {$elemKey:1} } ).toArray();
+               }, [], "elemKey: throw on invalid projection (field mismatch)" );
+
+assert.throws( function() {
+                   t.find( { group:3, 'x.a':2 }, { 'y.$': {$elemKey:1} } ).sort( { x:1 } ).toArray()
+               }, [], "elemKey: throw on invalid sorted projection (field mismatch)" );
+
+assert.throws( function() {x
+                   t.find( { group:3, 'x.a':2 }, { 'x.$': {$elemKey:1}, group:0 } ).sort( { x:1 } ).toArray();
+               }, [], "elemKey: throw on invalid projection combination (include and exclude)" );
+
+assert.throws( function() {
+                   t.find( { group:3, 'x.a':1, 'y.aa':1 }, { 'x.$': {$elemKey:1}, 'y.$':1 } ).toArray();
+               }, [], "elemKey: throw on multiple projections" );
+
+assert.throws( function() {
+                   t.find( { group:3, 'x.a':1, 'y.aa':1 }, { 'x.$': {$elemKey:1}, 'y.$': {$elemKey:1} } ).toArray();
+               }, [], "elemKey: throw on multiple projections" );
+
+assert.throws( function() {
+                   t.find( { group:3, 'x.a':1, 'y.aa':1 }, { 'x.$': {$elemKey:1}, 'y.$': {$elemKey:1} } ).toArray();
+               }, [], "elemKey: throw on multiple projections" );
+
+assert.throws( function() {
+                   t.find( { group:3}, { 'g.$': {$elemKey:1} } ).toArray()
+               }, [], "elemKey: throw on invalid projection (non-array field)" );
+
+
+assert.throws( function() {
+                   t.find( { group:3, 'x.a': 1}, { 'x': {$elemKey:1} } ).toArray()
+               }, [], "elemKey: throw on invalid projection (non-array field)" );
+
+assert.eq( { aa:1, dd:5 },
+           t.find( { group:11, 'covered.dd':5 }, { 'covered.$':{ $elemKey:1 } } ).toArray()[0].covered[0],
+           "elemKey: single object match (covered index)" );
+
+assert.eq( 2,
+           t.find( { group:11, 'covered.dd':5 }, { 'covered.$':{ $elemKey:1 } } ).toArray()[0].covered[1],
+           "elemKey: single object key (covered index)" );
+
+assert.eq( 2,
+           t.find( { group:11, 'covered.dd':5 }, { 'covered.$': { $elemKey:1 } } ).sort( { covered:1 } ).toArray()[0].covered[1],
+           "elemKey: single object key (sorted covered index)" );
+
+assert.eq( 2,
+           t.find( { group:10, 'y.d': 4 }, { 'y.$': { $elemKey:1 } } ).toArray()[0].y.length,
+          "single object match (regular index" );
+
+//
 // SERVER-2238:  $elemMatch projections
 //
 assert.eq( -6,

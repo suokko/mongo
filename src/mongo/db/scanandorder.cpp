@@ -63,7 +63,8 @@ namespace mongo {
         Projection *projection = parsedQuery ? parsedQuery->getFields() : NULL;
         scoped_ptr<Matcher> arrayMatcher;
         scoped_ptr<MatchDetails> details;
-        if ( projection && projection->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL ) {
+        if ( projection && ( projection->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL ||
+                    projection->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL_KEYED )) {
             // the projection specified an array positional match operator; create a new matcher
             // for the projected array
             arrayMatcher.reset( new Matcher( parsedQuery->getFilter() ) );
