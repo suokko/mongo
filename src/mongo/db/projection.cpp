@@ -25,6 +25,7 @@ namespace mongo {
     void Projection::init( const BSONObj& o ) {
         massert( 10371 , "can only add to Projection once", _source.isEmpty());
         _source = o;
+        ArrayOpType newArrayOpType = ARRAY_OP_POSITIONAL;
 
         BSONObjIterator i( o );
         int true_false = -1;
@@ -67,7 +68,8 @@ namespace mongo {
                              e2.type() == Object );
                     uassert( 16343, "Cannot specify positional operator and $elemMatch"
                                     " (currently unsupported).",
-                             _arrayOpType != ARRAY_OP_POSITIONAL );
+                             _arrayOpType != ARRAY_OP_POSITIONAL &&
+                             _arrayOpType != ARRAY_OP_POSITIONAL_KEYED );
                     uassert( 16344, "Cannot use $elemMatch projection on a nested field"
                                     " (currently unsupported).",
                              ! mongoutils::str::contains( e.fieldName(), '.' ) );
@@ -78,6 +80,15 @@ namespace mongo {
                     _matchers[mongoutils::str::before(e.fieldName(), '.').c_str()]
                             = boost::make_shared<Matcher>(e.wrap(), true);
                     add( e.fieldName(), true );
+                }
+                else if ( mongoutils::str::equals( e2.fieldName(), "$elemKey" ) ) {
+                    // validate $elemKey
+
+                    uassert(26633, string("elemKey: Must be used for positional operator: ") + e.fieldName(),
+                            mongoutils::str::contains( e.fieldName(), ".$" ) );
+
+                    newArrayOpType = ARRAY_OP_POSITIONAL_KEYED;
+                    add( e.fieldName(), e2.trueValue() );
                 }
                 else {
                     uasserted(13097, string("Unsupported projection option: ") +
@@ -107,10 +118,11 @@ namespace mongo {
                 uassert( 16345, "Cannot exclude array elements with the positional operator"
                                 " (currently unsupported).", e.trueValue() );
                 uassert( 16346, "Cannot specify more than one positional array element per query"
-                                " (currently unsupported).", _arrayOpType != ARRAY_OP_POSITIONAL );
+                                " (currently unsupported).", _arrayOpType != ARRAY_OP_POSITIONAL &&
+                                _arrayOpType != ARRAY_OP_POSITIONAL_KEYED );
                 uassert( 16347, "Cannot specify positional operator and $elemMatch"
                                 " (currently unsupported).", _arrayOpType != ARRAY_OP_ELEM_MATCH );
-                _arrayOpType = ARRAY_OP_POSITIONAL;
+                _arrayOpType = newArrayOpType;
             }
         }
     }
@@ -279,7 +291,8 @@ namespace mongo {
             }
             else { //Array
                 BSONObjBuilder matchedBuilder;
-                if ( details && arrayOpType == ARRAY_OP_POSITIONAL ) {
+                if ( details && ( arrayOpType == ARRAY_OP_POSITIONAL ||
+                        arrayOpType == ARRAY_OP_POSITIONAL_KEYED )) {
                     // $ positional operator specified
 
                     LOG(4) << "projection: checking if element " << e << " matched spec: "
@@ -292,8 +305,12 @@ namespace mongo {
                     uassert( 16353, "positional operator element mismatch",
                              ! e.embeddedObject()[details->elemMatchKey()].eoo() );
 
-                    // append as the first and only element in the projected array
+                    // append as the first element in the projected array
                     matchedBuilder.appendAs( e.embeddedObject()[details->elemMatchKey()], "0" );
+                    // append the key as the second element in the projected array
+                    if ( arrayOpType == ARRAY_OP_POSITIONAL_KEYED ) {
+                        matchedBuilder.append( "1", details->elemMatchKey() );
+                    }
                 }
                 else {
                     // append exact array; no subarray matcher specified
@@ -310,7 +327,8 @@ namespace mongo {
 
     void Projection::validateQuery( const BSONObj query ) const {
         // this function only validates positional operator ($) projections
-        if ( getArrayOpType() != ARRAY_OP_POSITIONAL )
+        if ( getArrayOpType() != ARRAY_OP_POSITIONAL &&
+                getArrayOpType() != ARRAY_OP_POSITIONAL_KEYED )
             return;
 
         BSONObjIterator querySpecIter( query );

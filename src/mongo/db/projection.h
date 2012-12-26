@@ -62,7 +62,8 @@ namespace mongo {
         enum ArrayOpType {
             ARRAY_OP_NORMAL = 0,
             ARRAY_OP_ELEM_MATCH,
-            ARRAY_OP_POSITIONAL
+            ARRAY_OP_POSITIONAL,
+            ARRAY_OP_POSITIONAL_KEYED,
         };
 
         Projection() :
@@ -113,6 +114,8 @@ namespace mongo {
          *  @return     ARRAY_OP_NORMAL if no array projection modifier,
          *              ARRAY_OP_ELEM_MATCH if one or more $elemMatch specifier,
          *              ARRAY_OP_POSITIONAL if one '.$' projection specified
+         *              ARRAY_OP_POSITIONAL_KEYED if one '.$' projection specified
+         *                                        and $elemKey specifier
          */
         ArrayOpType getArrayOpType() const;
 

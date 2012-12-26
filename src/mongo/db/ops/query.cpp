@@ -152,7 +152,8 @@ namespace mongo {
                 }
 
                 MatchDetails details;
-                if ( cc->fields && cc->fields->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL ) {
+                if ( cc->fields && ( cc->fields->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL ||
+                            cc->fields->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL_KEYED )) {
                     // field projection specified, and contains an array operator
                     details.requestElemMatchKey();
                 }
@@ -531,7 +532,8 @@ namespace mongo {
     bool QueryResponseBuilder::addMatch() {
         ResultDetails resultDetails;
 
-        if ( _parsedQuery.getFields() && _parsedQuery.getFields()->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL ) {
+        if ( _parsedQuery.getFields() && ( _parsedQuery.getFields()->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL ||
+                    _parsedQuery.getFields()->getArrayOpType() == Projection::ARRAY_OP_POSITIONAL_KEYED )) {
             // field projection specified, and contains an array operator
             resultDetails.matchDetails.requestElemMatchKey();
         }
