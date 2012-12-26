@@ -31,6 +31,20 @@ namespace mongo {
         }
     };
 
+    /**
+     * Proved less than operator and compare support with field name filtering.
+     */
+    class BSONElementCmpWithFilter {
+    public:
+        BSONElementCmpWithFilter(const BSONObj &keys = BSONObj()) : _keys(keys) {}
+        bool operator()( const BSONElement &l, const BSONElement &r) const {
+            return woCompare(l, r) < 0;
+        }
+        int woCompare( const BSONElement &l, const BSONElement &r ) const;
+    private:
+        BSONObj _keys;
+    };
+
     class BSONObjCmp {
     public:
         BSONObjCmp( const BSONObj &order = BSONObj() ) : _order( order ) {}

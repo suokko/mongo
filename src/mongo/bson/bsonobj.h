@@ -32,6 +32,7 @@
 namespace mongo {
 
     typedef std::set< BSONElement, BSONElementCmpWithoutField > BSONElementSet;
+    typedef std::set< BSONElement, BSONElementCmpWithFilter > BSONElementSetFiltered;
     typedef std::multiset< BSONElement, BSONElementCmpWithoutField > BSONElementMSet;
 
     /**

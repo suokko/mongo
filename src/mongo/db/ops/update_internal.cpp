@@ -236,17 +236,35 @@ namespace mongo {
 
         case ADDTOSET: {
             uassert( 12592 ,  "$addToSet can only be applied to an array" , in.type() == Array );
+            uassert( 22227,
+                     "Cannot use $idFields parameter without $each",
+                     !isIdFields() || isEach() );
+            uassert( 22228,
+                     "Cannot use true $upsert parameter without $each and $idFields",
+                     !isUpsert() || ( isEach() && isIdFields() ) );
+
+
             BSONArrayBuilder bb( builder.subarrayStart( shortFieldName ) );
             BSONObjIterator i( in.embeddedObject() );
 
             if ( isEach() ) {
+                BSONElementCmpWithFilter cmp;
+                if ( isIdFields() )
+                    cmp = BSONElementCmpWithFilter(getIdFields());
 
-                BSONElementSet toadd;
+                BSONElementSetFiltered toadd(cmp);
                 parseEach( toadd );
 
                 while ( i.more() ) {
                     BSONElement cur = i.next();
-                    bb.append( cur );
+                    if ( !isUpsert() || toadd.find( cur ) == toadd.end() ) {
+                        /* No upsert or upsert without matching object keeps current  */
+                        bb.append( cur );
+                    }
+                    else if ( isUpsert() ) {
+                        /* Upsert makes add to overwrite existing document */
+                        bb.append( *toadd.find( cur ) );
+                    }
                     toadd.erase( cur );
                 }
 
@@ -488,6 +506,29 @@ namespace mongo {
         }
         return !obj.getField( path ).eoo();
     }
+    
+    bool Mod::isIdFields() const {
+        if ( elt.type() != Object )
+            return false;
+        BSONElement e = elt.embeddedObject().getField("$idFields");
+        if ( e.eoo() )
+            return false;
+        uassert( 22224, "$idFields must be a Object", e.type() == Object);
+        return true;
+    }
+
+    bool Mod::isUpsert() const {
+        if ( elt.type() != Object )
+            return false;
+        BSONElement e = elt.embeddedObjectUserCheck().getField("$upsert");
+        if ( e.eoo() )
+            return false;
+        return e.trueValue();
+    }
+
+    BSONObj Mod::getIdFields() const {
+        return elt.embeddedObjectUserCheck().getField("$idFields").embeddedObjectUserCheck();
+    }
 
     auto_ptr<ModSetState> ModSet::prepare(const BSONObj& obj) const {
         DEBUGUPDATE( "\t start prepare" );
@@ -615,16 +656,35 @@ namespace mongo {
                 uassert( 12591,
                          "Cannot apply $addToSet modifier to non-array",
                          e.type() == Array || e.eoo() );
+                uassert( 22222,
+                         "Cannot use $idFields parameter without $each",
+                         !m.isIdFields() || m.isEach() );
+                uassert( 22223,
+                         "Cannot use true $upsert parameter without $each and $idFields",
+                         !m.isUpsert() || ( m.isEach() && m.isIdFields() ) );
 
                 BSONObjIterator i( e.embeddedObject() );
                 if ( m.isEach() ) {
-                    BSONElementSet toadd;
+                    bool inplace = true;
+                    BSONElementCmpWithFilter cmp;
+                    if ( m.isIdFields() )
+                        cmp = BSONElementCmpWithFilter(m.getIdFields());
+
+                    BSONElementSetFiltered toadd(cmp);
                     m.parseEach( toadd );
                     while( i.more() ) {
                         BSONElement arrI = i.next();
+                        if (m.isUpsert() && toadd.find( arrI ) != toadd.end() ) {
+                            BSONElement elt = *toadd.find( arrI );
+                            inplace = inplace && elt.type() == arrI.type() &&
+                                         elt.valuesize() == arrI.valuesize();
+                        }
                         toadd.erase( arrI );
                     }
-                    mss->amIInPlacePossible( toadd.size() == 0 );
+                    inplace = inplace && toadd.size() == 0;
+                    /* TODO: Fix inplace upsert to work correctly */
+                    inplace = inplace && !m.isUpsert();
+                    mss->amIInPlacePossible( inplace );
                 }
                 else {
                     bool found = false;

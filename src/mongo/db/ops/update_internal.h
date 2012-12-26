@@ -219,20 +219,36 @@ namespace mongo {
             }
         }
 
+        /**
+         * Check if $idFields parameter is present for $addToSet modifier
+         * @return true if $idFields is available
+         */
+        bool isIdFields() const;
+        /**
+         * Check if $upsert parameter is set for $addToSet modifier
+         * @return true if $upsert is set to true
+         */
+        bool isUpsert() const;
+        /**
+         * Fetch $idFields parameter BSONObj 
+         * @return BSONObj holding the parameter
+         */
+        BSONObj getIdFields() const;
+
         bool isEach() const {
             if ( elt.type() != Object )
                 return false;
-            BSONElement e = elt.embeddedObject().firstElement();
+            BSONElement e = elt.embeddedObject().getField("$each");
             if ( e.type() != Array )
                 return false;
-            return strcmp( e.fieldName() , "$each" ) == 0;
+            return true;
         }
 
         BSONObj getEach() const {
-            return elt.embeddedObjectUserCheck().firstElement().embeddedObjectUserCheck();
+            return elt.embeddedObjectUserCheck().getField("$each").embeddedObjectUserCheck();
         }
 
-        void parseEach( BSONElementSet& s ) const {
+        void parseEach( BSONElementSetFiltered& s ) const {
             BSONObjIterator i(getEach());
             while ( i.more() ) {
                 s.insert( i.next() );
@@ -602,7 +618,11 @@ namespace mongo {
                 if ( m.isEach() ) {
                     // Remove any duplicates in given array
                     BSONArrayBuilder arr( b.subarrayStart( m.shortFieldName ) );
-                    BSONElementSet toadd;
+                    BSONElementCmpWithFilter cmp;
+                    if ( m.isIdFields() )
+                        cmp = BSONElementCmpWithFilter(m.getIdFields());
+
+                    BSONElementSetFiltered toadd(cmp);
                     m.parseEach( toadd );
                     BSONObjIterator i( m.getEach() );
                     // int n = 0;

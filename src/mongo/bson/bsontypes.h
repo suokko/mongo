@@ -33,6 +33,7 @@ namespace mongo {
     class Record;
     struct BSONArray; // empty subclass of BSONObj useful for overloading
     struct BSONElementCmpWithoutField;
+    struct BSONElementCmpWithFilter;
 
     extern BSONObj maxKey;
     extern BSONObj minKey;

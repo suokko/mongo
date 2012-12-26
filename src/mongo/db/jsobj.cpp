@@ -471,6 +471,29 @@ namespace mongo {
         return true;
     }
 
+    int BSONElementCmpWithFilter::woCompare(const BSONElement& l, const BSONElement& r) const
+    {
+        if ( _keys.isEmpty() )
+            return l.woCompare(r, false);
+
+        BSONObj lo(l.embeddedObject());
+        BSONObj ro(r.embeddedObject());
+        BSONObjIterator kit(_keys);
+        while ( kit.more() ) {
+            BSONElement ke = kit.next();
+            BSONElement le = lo.getField(ke.fieldName());
+            BSONElement re = ro.getField(ke.fieldName());
+            if ( le.eoo() && !re.eoo() )
+                return -1;
+            if ( !le.eoo() && re.eoo() )
+                return 1;
+            int x = le.woCompare(re, false);
+            if (x != 0)
+                return ke.trueValue() ? x : -x;
+        }
+        return 0;
+    }
+
     int BSONObj::woCompare(const BSONObj& r, const Ordering &o, bool considerFieldName) const {
         if ( isEmpty() )
             return r.isEmpty() ? 0 : -1;
